@@ -1,13 +1,13 @@
 import sys, os
 import cv2
 import torch
-import matplotlib.pyplot as plt
+import torch.cuda as cuda
 from torchvision import transforms
 import numpy as np
 import procesadorImagenVideo as PIV
 from PyQt5.QtWidgets import QApplication, QMainWindow, QListWidget, QLabel, QPushButton
 from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtCore import Qt
 from model.UNET import UNET 
 
 class ListboxWidget(QListWidget):
@@ -47,25 +47,28 @@ class ListboxWidget(QListWidget):
             self.link = links[0]
         else:
             event.ignore()
+            
 
 
 class Interfaz(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.model = UNET(in_channels=6, out_channels=3)
+        self.device = "cuda" if cuda.is_available() else "cpu"
+        self.model = UNET(in_channels=6, out_channels=3).to(self.device)
+        self.model.load_state_dict(torch.load('model/weights.pth'))
         self.contador = 0
+        self.fps = 0
         self.imagenes = []
         self.resize(1725, 700)
         self.lst = ListboxWidget(self)
         self.lst.setGeometry(50,50,200,100)
-        
         self.btn1 = QPushButton('procesar video', self)
         self.btn1.setGeometry(50,200,200,25)
         self.btn1.clicked.connect(lambda : self.procesarVideo(self.lst.link))
         
-        self.btn1 = QPushButton('procesar imagen', self)
+        self.btn1 = QPushButton('generar video', self)
         self.btn1.setGeometry(50,250,200,25)
-        self.btn1.clicked.connect(lambda : self.procesarImagen())
+        self.btn1.clicked.connect(lambda : self.generarVideo())
               
         self.btn2 = QPushButton('siguiente', self)
         self.btn2.setGeometry(50,300,200,25)
@@ -107,53 +110,102 @@ class Interfaz(QMainWindow):
          
     def procesarVideo(self, dir):
         piv = PIV.procesadorImagenVideo()
-        self.imagenes = piv.ob_img(dir)
+        self.imagenes, self.fps = piv.ob_img(dir)
         self.pixmap = QPixmap(f'./imagenes/{self.imagenes[0]}')
         self.img1.setPixmap(self.pixmap)
         self.pixmap2 = QPixmap(f'./imagenes/{self.imagenes[1]}')
         self.img2.setPixmap(self.pixmap2)
         self.procesarImagen()
         
+    def generarVideo(self):
+        print ('start')
+        i = 0
+        newVideo = []
+        os.chdir('imagenes')
+        while i < len(self.imagenes)-1:
+            img1 = cv2.imread(f'./{self.imagenes[i]}', cv2.IMREAD_UNCHANGED)
+            img2 = cv2.imread(f'./{self.imagenes[i + 1]}', cv2.IMREAD_UNCHANGED)
+            height, width, layers = img1.shape
+            size = (width,height)
+            f1 = self.warpImage(img1, img2)
+            f2 = self.warpImage(img2, img1)
+            newFrame = self.calcUnet(f1,f2)
+            imgname = "Newframe%d.jpg" % i
+            cv2.imwrite(imgname, newFrame)
+            newFrame = cv2.imread(imgname, cv2.IMREAD_UNCHANGED)
+            newVideo.append(img1)
+            newVideo.append(newFrame)
+            print(i)
+            i += 1
+        newVideo.append(cv2.imread(f'./{self.imagenes[-1]}', cv2.IMREAD_UNCHANGED))
+        os.chdir('..')
+        print(len(newVideo))
+        out = cv2.VideoWriter('project.avi',cv2.VideoWriter_fourcc(*'DIVX'), self.fps*2, size)
+        for i in range(len(newVideo)):
+            out.write(newVideo[i])
+        out.release()
+        print('finish')
+        
+        
+    def calcUnet(self, image, nextImage):
+        convert_tensor = transforms.ToTensor()
+        T1 = convert_tensor(image).to(self.device)
+        T2 = convert_tensor(nextImage).to(self.device)
+        tensor = torch.unsqueeze(torch.cat((T1,T2),0),0)
+        tensor_image = self.model(tensor).cpu().detach().numpy()[0]
+        tensor_image = np.transpose(tensor_image, (1,2,0))    
+        return tensor_image*255
+    
+    def preprocessImage(self, image):
+        image = cv2.GaussianBlur(image, (3, 3), 0)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        image = cv2.Laplacian(image, cv2.CV_16S, ksize=1)
+        image = cv2.convertScaleAbs(image)
+        return image
+    
+    def warpImage(self, img1, img2):
+        img1gray = self.preprocessImage(img1)
+        img2gray = self.preprocessImage(img2)
+        flow = cv2.calcOpticalFlowFarneback(img1gray, img2gray,cv2.CV_16S, 0.2, 5, 2, 3, 5, 1.1, 0)
+        h, w = flow.shape[:2]
+        flow = -flow*0.5
+        flow[:,:,0] += np.arange(w)
+        flow[:,:,1] += np.arange(h)[:,np.newaxis]
+        warped = cv2.remap(img1, flow, None, cv2.INTER_LINEAR)
+        return warped
+         
     def procesarImagen(self):
         self.image = cv2.imread(f'./imagenes/{self.imagenes[self.contador]}', cv2.IMREAD_UNCHANGED)
         self.nextImage = cv2.imread(f'./imagenes/{self.imagenes[self.contador + 1]}', cv2.IMREAD_UNCHANGED)
-        
-        #calculo en u-net
-        convert_tensor = transforms.ToTensor()
-        T1 = convert_tensor(self.image)
-        T2 = convert_tensor(self.nextImage)
-        tensor = torch.unsqueeze(torch.cat((T1,T2),0),0)
-        tensor_image = self.model(tensor).detach().numpy()[0]
-        print(tensor_image.shape)
-        tensor_image = np.transpose(tensor_image, (1,2,0))*255
-        cv2.imshow("tensor_image", tensor_image)
-
-        
         self.mostrarImagen()
-        img1 = cv2.GaussianBlur(self.image, (3, 3), 0)
-        img2 = cv2.GaussianBlur(self.nextImage, (3, 3), 0)
-        img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-        img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-        img1 = cv2.Laplacian(img1, cv2.CV_16S, ksize=1)
-        img1 = cv2.convertScaleAbs(img1)
-        img2 = cv2.Laplacian(img2, cv2.CV_16S, ksize=1)
-        img2 = cv2.convertScaleAbs(img2)
-        cv2.imshow("bordes img1", img1)
-        cv2.imshow("bordes img2", img2)
+        img1 = self.preprocessImage(self.image)
+        img2 = self.preprocessImage(self.nextImage)
         mask12 = np.zeros_like(self.image)
         mask21 = np.zeros_like(self.image)
         flow12 = cv2.calcOpticalFlowFarneback(img1, img2,cv2.CV_16S, 0.2, 5, 2, 3, 5, 1.1, 0)
         flow21 = cv2.calcOpticalFlowFarneback(img2, img1,cv2.CV_16S, 0.2, 5, 2, 3, 5, 1.1, 0)
         magnitude12, angle12 = cv2.cartToPolar(flow12[..., 0], flow12[..., 1])
         magnitude21, angle21 = cv2.cartToPolar(flow21[..., 0], flow21[..., 1])
-        mask12[..., 0] = angle12 * 180 / np.pi / 2
+        mask12[..., 0] = angle12*(180/np.pi/2)
+        mask12[..., 1] = 255
         mask12[..., 2] = cv2.normalize(magnitude12, None, 0, 255, cv2.NORM_MINMAX)
-        rgb12 = cv2.cvtColor(mask12, cv2.COLOR_HSV2BGR)
-        mask21[..., 0] = angle21 * 180 / np.pi / 2
+        rgb12 = cv2.cvtColor(mask12, cv2.COLOR_HSV2RGB)
+        mask21[..., 0] = angle21*(180/np.pi/2)
+        mask21[..., 1] = 255
         mask21[..., 2] = cv2.normalize(magnitude21, None, 0, 255, cv2.NORM_MINMAX)
-        rgb21 = cv2.cvtColor(mask21, cv2.COLOR_HSV2BGR)
-        cv2.imshow("B0-B1", rgb12)
-        cv2.imshow("B1-B0", rgb21)
+        rgb21 = cv2.cvtColor(mask21, cv2.COLOR_HSV2RGB)
+        h, w = flow12.shape[:2]
+        flow12 = -flow12*0.5
+        flow12[:,:,0] += np.arange(w)
+        flow12[:,:,1] += np.arange(h)[:,np.newaxis]
+        flow21 = -flow21*0.5
+        flow21[:,:,0] += np.arange(w)
+        flow21[:,:,1] += np.arange(h)[:,np.newaxis]
+        f1 = cv2.remap(self.image, flow12, None, cv2.INTER_LINEAR)
+        f2 = cv2.remap(self.nextImage, flow21, None, cv2.INTER_LINEAR)
+        tensor_image = self.calcUnet(f1, f2)/255
+        cv2.imshow("tensor_image", tensor_image)
+        
         
     def mostrarImagen(self):
         size = self.image.shape

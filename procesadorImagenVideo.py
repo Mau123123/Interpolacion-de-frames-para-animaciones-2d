@@ -28,4 +28,4 @@ class procesadorImagenVideo():
             count += 1
         path_parent = os.path.dirname(os.getcwd())
         os.chdir(path_parent)
-        return imagenes
+        return imagenes, fps

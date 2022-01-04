@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as TF
-from ConvBlock import ConvBlock
+from .ConvBlock import ConvBlock
 
 class UNET(nn.Module):
     
@@ -51,4 +51,4 @@ class UNET(nn.Module):
             concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.decoders[idx+1](concat_skip)
 
-        return self.relu(self.final_conv(x))
+        return self.final_conv(x)

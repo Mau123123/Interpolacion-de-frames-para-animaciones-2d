@@ -4,12 +4,15 @@ import shutil
 
 vid = "simpson2"
 
-def ob_img(video_dir, dim):
+def ob_img(video_dir, name, dim):
     print(video_dir)
     vidcap = cv2.VideoCapture(video_dir)
     success,image = vidcap.read()
     count = 100000
-    os.chdir(f"./dataset/{vid}")
+    if os.path.exists(f"./dataset/{name}"):
+        shutil.rmtree(f"./dataset/{name}")
+    os.mkdir(f"./dataset/{name}")
+    os.chdir(f"./dataset/{name}")
     while success:
         if dim: 
             image = cv2.resize(image,dim, interpolation = cv2.INTER_AREA)
@@ -17,9 +20,5 @@ def ob_img(video_dir, dim):
         cv2.imwrite(imgname, image)
         success,image = vidcap.read()
         count += 1
-        
-if os.path.exists(f"./dataset/{vid}"):
-    shutil.rmtree(f"./dataset/{vid}")
-os.mkdir(f"./dataset/{vid}")
 
-ob_img(f"{vid}.mp4", (400, 300))
+ob_img(f"{vid}.mp4",vid, (400, 300))
