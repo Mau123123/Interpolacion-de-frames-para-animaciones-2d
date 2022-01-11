@@ -55,6 +55,7 @@ class Interfaz(QMainWindow):
         super().__init__()
         self.device = "cuda" if cuda.is_available() else "cpu"
         self.model = UNET(in_channels=6, out_channels=3).to(self.device)
+        self.modelEdges = UNET(in_channels=2, out_channels=1).to(self.device)
         self.model.load_state_dict(torch.load('model/weights.pth'))
         self.contador = 0
         self.fps = 0
@@ -127,8 +128,8 @@ class Interfaz(QMainWindow):
             img2 = cv2.imread(f'./{self.imagenes[i + 1]}', cv2.IMREAD_UNCHANGED)
             height, width, layers = img1.shape
             size = (width,height)
-            f1 = self.warpImage(img1, img2)
-            f2 = self.warpImage(img2, img1)
+            f1 = self.warpImage(img1, img2, layers)
+            f2 = self.warpImage(img2, img1, layers)
             newFrame = self.calcUnet(f1,f2)
             imgname = "Newframe%d.jpg" % i
             cv2.imwrite(imgname, newFrame)
@@ -156,17 +157,24 @@ class Interfaz(QMainWindow):
         tensor_image = np.transpose(tensor_image, (1,2,0))    
         return tensor_image*255
     
-    def preprocessImage(self, image):
-        image = cv2.GaussianBlur(image, (3, 3), 0)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        image = cv2.Laplacian(image, cv2.CV_16S, ksize=1)
-        image = cv2.convertScaleAbs(image)
-        return image
-    
-    def warpImage(self, img1, img2):
-        img1gray = self.preprocessImage(img1)
-        img2gray = self.preprocessImage(img2)
-        flow = cv2.calcOpticalFlowFarneback(img1gray, img2gray,cv2.CV_16S, 0.2, 5, 2, 3, 5, 1.1, 0)
+    def calcEdges(self, image, nextImage):
+        convert_tensor = transforms.ToTensor()
+        T1 = convert_tensor(image).type(torch.FloatTensor).to(self.device)
+        T2 = convert_tensor(nextImage).type(torch.FloatTensor).to(self.device)
+        tensor = torch.unsqueeze(torch.cat((T1,T2),0),0)
+        tensor_image = self.modelEdges(tensor).cpu().detach().numpy()[0]
+        tensor_image = np.transpose(tensor_image, (1,2,0))    
+        return tensor_image*255
+     
+    def warpImage(self, img1, img2, channels):
+        if channels > 1:
+            img1gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+            img2gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+            flow = cv2.calcOpticalFlowFarneback(img1gray, img2gray,cv2.CV_16S, 0.2, 5, 2, 3, 5, 1.1, 0)
+        else:
+            flow = cv2.calcOpticalFlowFarneback(img1, img2, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+            img1 = img1
+            img2 = img2
         h, w = flow.shape[:2]
         flow = -flow*0.5
         flow[:,:,0] += np.arange(w)
@@ -178,49 +186,34 @@ class Interfaz(QMainWindow):
         self.image = cv2.imread(f'./imagenes/{self.imagenes[self.contador]}', cv2.IMREAD_UNCHANGED)
         self.nextImage = cv2.imread(f'./imagenes/{self.imagenes[self.contador + 1]}', cv2.IMREAD_UNCHANGED)
         self.mostrarImagen()
-        img1 = self.preprocessImage(self.image)
-        img2 = self.preprocessImage(self.nextImage)
-        mask12 = np.zeros_like(self.image)
-        mask21 = np.zeros_like(self.image)
-        flow12 = cv2.calcOpticalFlowFarneback(img1, img2,cv2.CV_16S, 0.2, 5, 2, 3, 5, 1.1, 0)
-        flow21 = cv2.calcOpticalFlowFarneback(img2, img1,cv2.CV_16S, 0.2, 5, 2, 3, 5, 1.1, 0)
-        magnitude12, angle12 = cv2.cartToPolar(flow12[..., 0], flow12[..., 1])
-        magnitude21, angle21 = cv2.cartToPolar(flow21[..., 0], flow21[..., 1])
-        mask12[..., 0] = angle12*(180/np.pi/2)
-        mask12[..., 1] = 255
-        mask12[..., 2] = cv2.normalize(magnitude12, None, 0, 255, cv2.NORM_MINMAX)
-        rgb12 = cv2.cvtColor(mask12, cv2.COLOR_HSV2RGB)
-        mask21[..., 0] = angle21*(180/np.pi/2)
-        mask21[..., 1] = 255
-        mask21[..., 2] = cv2.normalize(magnitude21, None, 0, 255, cv2.NORM_MINMAX)
-        rgb21 = cv2.cvtColor(mask21, cv2.COLOR_HSV2RGB)
-        h, w = flow12.shape[:2]
-        flow12 = -flow12*0.5
-        flow12[:,:,0] += np.arange(w)
-        flow12[:,:,1] += np.arange(h)[:,np.newaxis]
-        flow21 = -flow21*0.5
-        flow21[:,:,0] += np.arange(w)
-        flow21[:,:,1] += np.arange(h)[:,np.newaxis]
-        f1 = cv2.remap(self.image, flow12, None, cv2.INTER_LINEAR)
-        f2 = cv2.remap(self.nextImage, flow21, None, cv2.INTER_LINEAR)
+        img_gray1 = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        img_gray2 = cv2.cvtColor(self.nextImage, cv2.COLOR_BGR2GRAY)
+        img_gray1 = cv2.adaptiveThreshold(img_gray1,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,2)
+        img_gray2 = cv2.adaptiveThreshold(img_gray2,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,2)
+        img_gray1 = np.amax(img_gray1) - img_gray1 
+        img_gray2 = np.amax(img_gray2) - img_gray2 
+        b1 = self.warpImage(img_gray1, img_gray2, 1)
+        b2 = self.warpImage(img_gray2, img_gray1, 1)
+        cv2.imshow("edge", b1)
+        edge_image = self.calcEdges(b1, b2)/255
+        f1 = self.warpImage(self.image, self.nextImage, 3)
+        f2 = self.warpImage(self.nextImage, self.image, 3)
         tensor_image = self.calcUnet(f1, f2)/255
         cv2.imshow("tensor_image", tensor_image)
+        cv2.imshow("edge_image", edge_image)
         
         
     def mostrarImagen(self):
         size = self.image.shape
-        step = self.image.size / size[0]
+        step = int(self.image.size / size[0])
         qformat = QImage.Format_Indexed8
-
         if len(size) == 3:
             if size[2] == 4:
                 qformat = QImage.Format_RGBA8888
             else:
                 qformat = QImage.Format_RGB888
-
         img = QImage(self.image, size[1], size[0], step, qformat)
         img = img.rgbSwapped()
-
         self.imgProcesada.setPixmap(QPixmap.fromImage(img))
         
         

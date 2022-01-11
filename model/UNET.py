@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as TF
-from convBlock import ConvBlock
+from .convBlock import ConvBlock
 
 class UNET(nn.Module):
     

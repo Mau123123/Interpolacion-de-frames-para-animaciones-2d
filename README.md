@@ -9,6 +9,8 @@ requisitos:
     numpy
     cuda 11.5
 
+conda activate C:\Users\Mau\Desktop\proyectos\Proyecto\projectDependecies
+
  instalacion:
     descargar las librerias:
         cv2: pip install cv2
