@@ -10,12 +10,12 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
 #iniciar parametros
-BATCH = 5
-EPOCHS = 1
+BATCH = 1
+EPOCHS = 10
 device = "cuda" if cuda.is_available() else "cpu"
-unet = UNET(in_channels=6, out_channels=3).to(device)
-optimizer = optim.Adam(unet.parameters(), lr= 0.001)
 dataset = FramesDataset(dir = r'C:\Users\Mau\Desktop\proyectos\Proyecto\dataset', transform=transforms.ToTensor())
+unet = UNET(in_channels=6, out_channels=3).to(device)
+optimizer = optim.Adam(unet.parameters(), lr= 0.000001)
 
 #dividir el dataset
 len = dataset.__len__()
@@ -31,10 +31,9 @@ for epoch in range(EPOCHS):
     for data in trainset:
         print(loss)
         (F1,F3) ,F2 = data
-        input = cat((F1,F3),1)
-        output = unet(input)
+        output = unet(F1, F3)
         optimizer.zero_grad()
-        loss = F.mse_loss(output , F2)
+        loss  = F.mse_loss(output , F2)
         loss.backward()
         optimizer.step()
     print(loss)

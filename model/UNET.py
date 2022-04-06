@@ -1,19 +1,26 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as TF
-from .convBlock import ConvBlock
+try:
+    from .convBlock import ConvBlock                  
+except ImportError:
+    try:
+        from convBlock import ConvBlock
+    except ImportError:
+        print("no existe modulo")
 
 class UNET(nn.Module):
     
     def __init__(
-            self, in_channels=6, out_channels=3, channels=[64, 128, 256, 512],
+            self, in_channels=6, out_channels=3, channels=[32, 64],
     ):
         super(UNET, self).__init__()
+        self.conv = nn.Conv2d(3, 8, 3, 1, 1, bias=False)
         self.encoders = nn.ModuleList()
         self.decoders = nn.ModuleList()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.relu = nn.ReLU(inplace=True)
-
+        in_channels = 8
         for feature in channels:
             self.encoders.append(ConvBlock(in_channels, feature))
             in_channels = feature
@@ -30,9 +37,11 @@ class UNET(nn.Module):
         self.final_conv = nn.Conv2d(channels[0], out_channels, kernel_size=1)
 
 
-    def forward(self, x):
+    def forward(self, x1, x2):
         skip_connections = []
-
+        x1 = self.conv(x1)
+        x2 = self.conv(x2)
+        x = torch.cat((x1,x2),1)
         for encoder in self.encoders:
             x = encoder(x)
             skip_connections.append(x)

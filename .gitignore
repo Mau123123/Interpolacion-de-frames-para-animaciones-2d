@@ -11,6 +11,7 @@ __pycache__/
 imagenes/
 *.avi
 .Python
+.jpg
 build/
 develop-eggs/
 dist/
@@ -21,6 +22,8 @@ lib/
 lib64/
 parts/
 sdist/
+test_2k_540p
+dataset/
 var/
 wheels/
 pip-wheel-metadata/

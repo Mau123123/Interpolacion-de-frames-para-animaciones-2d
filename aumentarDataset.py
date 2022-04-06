@@ -1,18 +1,21 @@
 import cv2
 import os
 import shutil
+import generateWarped
+from warp import Warp
 
 vid = "simpson2"
+dataset = "test_2k_540p"
 
 def ob_img(video_dir, name, dim):
     print(video_dir)
     vidcap = cv2.VideoCapture(video_dir)
     success,image = vidcap.read()
     count = 100000
-    if os.path.exists(f"./dataset/{name}"):
-        shutil.rmtree(f"./dataset/{name}")
-    os.mkdir(f"./dataset/{name}")
-    os.chdir(f"./dataset/{name}")
+    if os.path.exists(f"./{dataset}/{name}"):
+        return
+    os.mkdir(f"./{dataset}/{name}")
+    os.chdir(f"./{dataset}/{name}")
     while success:
         if dim: 
             image = cv2.resize(image,dim, interpolation = cv2.INTER_AREA)
@@ -20,5 +23,13 @@ def ob_img(video_dir, name, dim):
         cv2.imwrite(imgname, image)
         success,image = vidcap.read()
         count += 1
+    os.chdir(f"../..")
 
-ob_img(f"{vid}.mp4",vid, (400, 300))
+DIM = (400,300)      
+directory = os.getcwd()+"/{dataset}"
+for video in os.listdir("video"):
+    dir = os.getcwd()+r"\video"+ "\\" + video
+    name = video.split(".")[0]
+    ob_img(dir,name, DIM)
+warp = Warp()
+generateWarped.frameList(directory, warp)
