@@ -41,6 +41,6 @@ def frameList(dir , Warp):
                     imwrite(f2name, f2)
                     idx += 1
                     
-dire = r'C:\Users\Mau\Desktop\proyectos\Proyecto\test_2k_540p'
+dire = r'C:\Users\Mau\Desktop\proyectos\Proyecto\dataset'
 warp = Warp()
 frameList(dire, warp)

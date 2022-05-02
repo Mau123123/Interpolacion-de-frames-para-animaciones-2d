@@ -1,5 +1,5 @@
 import torch.nn as nn
-
+from torch.utils.checkpoint import checkpoint_sequential
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(ConvBlock, self).__init__()

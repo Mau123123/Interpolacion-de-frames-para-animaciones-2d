@@ -18,7 +18,7 @@ class Warp():
         
     def loadArgs(self):
         parser = argparse.ArgumentParser()
-        parser.add_argument('--model', help="restore checkpoint", default="GMA/checkpoints/gma-sintel.pth")
+        parser.add_argument('--model', help="restore checkpoint", default="GMA/checkpoints/gma-things.pth")
         parser.add_argument('--model_name', help="define model name", default="GMA")
         parser.add_argument('--path', help="dataset for evaluation")
         parser.add_argument('--num_heads', default=1, type=int,

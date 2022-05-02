@@ -12,6 +12,8 @@ imagenes/
 *.avi
 .Python
 .jpg
+.mp4v
+environment
 build/
 develop-eggs/
 dist/

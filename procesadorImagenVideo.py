@@ -13,16 +13,14 @@ class procesadorImagenVideo():
         fps = vidcap.get(cv2.CAP_PROP_FPS)
         print(fps)
         success,image = vidcap.read()
-        dim = (400, 300)
         count = 0
         if os.path.exists("imagenes"):
             shutil.rmtree("./imagenes")
         os.mkdir("imagenes")
         os.chdir("./imagenes")
         while success:
-            imageRed = cv2.resize(image,dim, interpolation = cv2.INTER_AREA)
             imgname = "frame%d.jpg" % count
-            cv2.imwrite(imgname, imageRed)
+            cv2.imwrite(imgname, image)
             imagenes.append(imgname)
             success,image = vidcap.read()
             count += 1

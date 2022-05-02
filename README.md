@@ -8,14 +8,15 @@ requisitos:
     torch 1.10.1
     numpy
     cuda 11.5
-
-conda activate C:\Users\Mau\Desktop\proyectos\Proyecto\projectDependecies
-
  instalacion:
     descargar las librerias:
-        cv2: pip install cv2
+        scipy: pip install scipy
+        einops:pip install einops
+        wheels: pip install wheel
+        cv2: pip install opencv-python
         PyQt5: pip install PyQt5
         shutil: pip install shutil
+        cupy: pip install cupy-cuda113 pip install cupy --no-cache-dir -vvvv
         torch: pip3 install torch==1.10.1+cu113 torchvision==0.11.2+cu113 torchaudio===0.10.1+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
         numpy: pip install numpy
     descargar los pesos ya entrenados del drive y copiarlos en la carpeta model

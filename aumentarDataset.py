@@ -5,7 +5,7 @@ import generateWarped
 from warp import Warp
 
 vid = "simpson2"
-dataset = "test_2k_540p"
+dataset = "dataset"
 
 def ob_img(video_dir, name, dim):
     print(video_dir)
@@ -31,5 +31,3 @@ for video in os.listdir("video"):
     dir = os.getcwd()+r"\video"+ "\\" + video
     name = video.split(".")[0]
     ob_img(dir,name, DIM)
-warp = Warp()
-generateWarped.frameList(directory, warp)

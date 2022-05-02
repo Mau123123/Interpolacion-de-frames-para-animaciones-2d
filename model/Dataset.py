@@ -15,16 +15,20 @@ class FramesDataset(Dataset):
         return len(self.frames)
     
     def __getitem__(self,index):
-        ((frame1,frame3),frame2) =  self.frames[index]
+        ((frame1,frame3),frame2,(img1, img3)) =  self.frames[index]
+        img1 = imread(img1)
+        img3 = imread(img3)
         frame1 = imread(frame1)
         frame2 = imread(frame2)
         frame3 = imread(frame3)
         if self.transform is None:
-            return ((frame1, frame3), frame2)
+            return ((frame1, frame3), frame2, (img1,img3))
+        img1 = self.transform(img1)
+        img3 = self.transform(img3)
         frame1 = self.transform(frame1)
         frame2 = self.transform(frame2)
         frame3 = self.transform(frame3)
-        return ((frame1,frame3), frame2)
+        return ((frame1,frame3), frame2, (img1, img3))
 
     def frameList(self):
         frames = []
@@ -53,6 +57,6 @@ class FramesDataset(Dataset):
                     f2 = F2frames[idx]
                     f1 = self.dir + '\\'+directories + '\\' +"warped"+ '\\' + "f1\\"+f1
                     f2 = self.dir + '\\'+directories + '\\' +"warped"+ '\\' + "f2\\"+f2 
-                    frames.append(((f1,f2), output[idx]))     
+                    frames.append(((f1,f2), output[idx], directory_frames[idx]))     
         return frames 
     
