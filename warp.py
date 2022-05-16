@@ -3,8 +3,8 @@ import argparse
 from cv2 import remap, INTER_LINEAR
 from torch.nn import DataParallel
 from torch import load, from_numpy
-from GMA.core.network import RAFTGMA
-from GMA.core.utils.utils import InputPadder
+from model.GMA.core.network import RAFTGMA
+from model.GMA.core.utils.utils import InputPadder
 
 class Warp():
     def __init__(self):

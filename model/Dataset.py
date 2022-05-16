@@ -1,7 +1,7 @@
 import os
 import torch.cuda as cuda
 from torch.utils.data import Dataset
-from cv2 import imread
+from PIL.Image import open
 
 class FramesDataset(Dataset):
     
@@ -16,11 +16,11 @@ class FramesDataset(Dataset):
     
     def __getitem__(self,index):
         ((frame1,frame3),frame2,(img1, img3)) =  self.frames[index]
-        img1 = imread(img1)
-        img3 = imread(img3)
-        frame1 = imread(frame1)
-        frame2 = imread(frame2)
-        frame3 = imread(frame3)
+        img1 = open(img1)
+        img3 = open(img3)
+        frame1 = open(frame1)
+        frame2 = open(frame2)
+        frame3 = open(frame3)
         if self.transform is None:
             return ((frame1, frame3), frame2, (img1,img3))
         img1 = self.transform(img1)

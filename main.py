@@ -1,12 +1,13 @@
 import sys, os
 import cv2
-import torch
+import torchvision.transforms as transforms
 import numpy as np
 import procesadorImagenVideo as PIV
 from PyQt5.QtWidgets import QApplication, QMainWindow, QListWidget, QLabel, QPushButton
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 from PIL import Image
+from PIL.Image import open
 from model.interpolacion import interpolacion
 
 class ListboxWidget(QListWidget):
@@ -52,7 +53,7 @@ class Interfaz(QMainWindow):
         super().__init__()
         self.device = "cuda"
         self.interpolacion = interpolacion()
-        
+        self.transform =  transforms.ToTensor()
         self.contador = 0
         self.fps = 0
         self.imagenes = []
@@ -117,13 +118,17 @@ class Interfaz(QMainWindow):
         print ('start')
         i = 0
         newVideo = []
+        height = 0
+        width = 0
         os.chdir('imagenes')
         while i < len(self.imagenes)-1:
             image1 = cv2.imread(f'./{self.imagenes[i]}', cv2.IMREAD_UNCHANGED)
             image2 = cv2.imread(f'./{self.imagenes[i + 1]}', cv2.IMREAD_UNCHANGED)
             img1 = self.load_image(f'./{self.imagenes[i]}')
             img2 = self.load_image(f'./{self.imagenes[i + 1]}')
-            newFrame = self.interpolacion.forward(image1, image2)
+            newFrame = self.interpolacion.forward(img1, img2)*255
+            height = newFrame.shape[0]
+            width = newFrame.shape[1]
             imgname = "Newframe%d.jpg" % i
             cv2.imwrite(imgname, newFrame)
             newFrame = cv2.imread(imgname, cv2.IMREAD_UNCHANGED)
@@ -133,8 +138,7 @@ class Interfaz(QMainWindow):
             i += 1
         newVideo.append(cv2.imread(f'./{self.imagenes[-1]}', cv2.IMREAD_UNCHANGED))
         os.chdir('..')
-        print(len(newVideo))
-        out = cv2.VideoWriter('generated.avi',cv2.VideoWriter_fourcc(*'DIVX'), self.fps*2, (400,300))
+        out = cv2.VideoWriter('generated.mp4v',cv2.VideoWriter_fourcc(*'DIVX'), self.fps*2, (width,height))
         for i in range(len(newVideo)):
             out.write(newVideo[i])
         out.release()
@@ -162,9 +166,7 @@ class Interfaz(QMainWindow):
         print('finish')
           
     def load_image(self,imfile):
-        img = np.array(Image.open(imfile)).astype(np.uint8)
-        img = torch.from_numpy(img).permute(2, 0, 1).float()
-        return img[None].to(self.device)
+        return self.interpolacion.loadImage(imfile)
          
     def procesarImagen(self):
         self.image = cv2.imread(f'./imagenes/{self.imagenes[self.contador]}', cv2.IMREAD_UNCHANGED)
